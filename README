@@ -1,0 +1,11 @@
+A brainfuck interpreter for the c64.
+All instructions are supported.
+Loops cannot be nested more than 255 times.
+
+FAQ:
+
+Q: Why though?
+A: Because I can.
+
+Q: How can I run my own program?
+A: Simply assemble the rom and .incbin your bf file in the bfcode section.
