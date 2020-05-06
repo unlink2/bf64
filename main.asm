@@ -10,6 +10,7 @@ data_ptr 2
 next_inst 1 ; next instruction to parse, if 00 terminate
 loop_depth 1 ; how many loops deep are we? used for search of ] or [
 temp 2 ; temp storage
+repl_flag 1 ; repl flag set to 00 to start repl, do not move!
 .ende
 
 .db #<BASIC_MEMORY, #>BASIC_MEMORY ; ptr to next basic line
@@ -17,10 +18,12 @@ temp 2 ; temp storage
 
 ; a very simple basic program that jumps to the start of machine code
 .db $0c, $08, $00, $00, $9e ; 10 sys
-.db "2061", $00, $00, $00 ; the actual address in petscii
+.db "2063", $00, $00, $00 ; the actual address in petscii
 
 
 .org $080D ; address after basic
+bfcode_ptr: ; do not move this label!
+.db #<bfcode, #>bfcode ; start address of code, can be poked
 
 init:
     cld ; not decimal mode
@@ -36,9 +39,9 @@ init:
     bne @clear_loop
 
     ; init ptr to data
-    lda #<DATA_AREA
+    lda bfcode_ptr
     sta data_ptr
-    lda #>DATA_AREA
+    lda bfcode_ptr
     sta data_ptr+1
 
     lda #<bfcode
@@ -49,10 +52,14 @@ init:
     lda #$00
     sta loop_depth ; 0 loop depth
 
+    lda repl_flag  ; repl mode if 0
+    beq @repl
 
     jsr parse_loop
-
     rts ; exit back to basic
+@repl:
+    jsr repl
+    rts ; back to basic
 
 ; loops through inst_ptr until $00 is reached
 ; inputs:
@@ -73,6 +80,23 @@ parse_loop:
 @done:
     rts
 
+; if repl mode is chosen user input is code
+repl:
+    ldy #$00
+    jsr BASIN ; get next
+    sta next_inst
+    sta (inst_ptr), y
+    beq @done
+    cmp #'E'
+    beq @done
+
+    ; jsr parse_inst
+    ; next instruction
+    lda #$01
+    jsr inc_inst_ptr
+    jmp repl
+@done:
+    rts
 
 ; increments isntruction ptr by a
 inc_inst_ptr:

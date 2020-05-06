@@ -2,6 +2,11 @@ A brainfuck interpreter for the c64.
 All instructions are supported.
 Loops cannot be nested more than 255 times.
 
+To enter programming mode POKE 259, 00 then run the program.
+In this mode simply enter each instruction (E to Exit).
+To enter execute mode POKE 259, 01. The program will now run.
+To change the starting location of the code area poke 2061 and 2061 with a new location.
+
 FAQ:
 
 Q: Why though?
