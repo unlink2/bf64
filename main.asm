@@ -18,19 +18,28 @@ repl_flag 1 ; repl flag set to 00 to start repl, do not move!
 
 ; a very simple basic program that jumps to the start of machine code
 .db $0c, $08, $00, $00, $9e ; 10 sys
-.db "2063", $00, $00, $00 ; the actual address in petscii
+.db "2065", $00, $00, $00 ; the actual address in petscii
 
 
 .org $080D ; address after basic
 bfcode_ptr: ; do not move this label!
 .db #<bfcode, #>bfcode ; start address of code, can be poked
+bfdata_ptr: ; do not move this label!
+.db #<DATA_AREA, #>DATA_AREA
 
 init:
     cld ; not decimal mode
 
+    ; init ptr to data
+    lda bfdata_ptr
+    sta data_ptr
+    lda bfdata_ptr+1
+    sta data_ptr+1
+
     ldy #$FF
     lda #$00
 @clear_loop:
+    sta (data_ptr), y
     sta DATA_AREA, y
     sta DATA_AREA+$FF, y
     sta DATA_AREA+$1FF, y
@@ -38,11 +47,6 @@ init:
     cpy #$FF
     bne @clear_loop
 
-    ; init ptr to data
-    lda #<DATA_AREA
-    sta data_ptr
-    lda #>DATA_AREA
-    sta data_ptr+1
 
     lda bfcode_ptr
     sta inst_ptr

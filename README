@@ -5,7 +5,8 @@ Loops cannot be nested more than 255 times.
 To enter programming mode POKE 259, 00 then run the program.
 In this mode simply enter each instruction (E to Exit).
 To enter execute mode POKE 259, 01. The program will now run.
-To change the starting location of the code area poke 2061 and 2061 with a new location.
+To change the starting location of the code area poke 2061 and 2062 with a new location.
+To change the data location poke 2063 and 2064.
 
 Debug mode:
 If the 7th bit of 259 is set (poke 259, 128) debug mode is enabled. All instructons will be printed to the screen.
