@@ -39,14 +39,14 @@ init:
     bne @clear_loop
 
     ; init ptr to data
-    lda bfcode_ptr
+    lda #<DATA_AREA
     sta data_ptr
-    lda bfcode_ptr
+    lda #>DATA_AREA
     sta data_ptr+1
 
-    lda #<bfcode
+    lda bfcode_ptr
     sta inst_ptr
-    lda #>bfcode
+    lda bfcode_ptr+1
     sta inst_ptr+1
 
     lda #$00
@@ -71,6 +71,13 @@ parse_loop:
     lda (inst_ptr), y ; next instruction
     sta next_inst
     beq @done ; if next is 0 we exit
+
+    lda repl_flag ; output debug if flag is set
+    and #%10000000
+    beq @no_out
+    lda next_inst
+    jsr BSOUT
+@no_out:
 
     jsr parse_inst
     ; next instruction

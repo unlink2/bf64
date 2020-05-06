@@ -7,6 +7,9 @@ In this mode simply enter each instruction (E to Exit).
 To enter execute mode POKE 259, 01. The program will now run.
 To change the starting location of the code area poke 2061 and 2061 with a new location.
 
+Debug mode:
+If the 7th bit of 259 is set (poke 259, 128) debug mode is enabled. All instructons will be printed to the screen.
+
 FAQ:
 
 Q: Why though?
@@ -14,3 +17,7 @@ A: Because I can.
 
 Q: How can I run my own program?
 A: Simply assemble the rom and .incbin your bf file in the bfcode section.
+
+Q: What is the expected test output of test.bf
+
+A: 0 0 5 5 1 57 0 0 0
