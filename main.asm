@@ -96,6 +96,9 @@ repl:
     jsr inc_inst_ptr
     jmp repl
 @done:
+    ; set last byte to 0
+    lda #$00
+    sta (inst_ptr), y
     rts
 
 ; increments isntruction ptr by a
