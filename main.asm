@@ -2,7 +2,21 @@
 .define BASIN $FFCF ; reads one char to A
 .define BASIC_MEMORY $0801 ; start of basic memory
 
+; file commands
+.define CLOSE $F291 ; close file
+.define OPEN $F34A ; open file
+.define SETLFS $FE00 ; set file parameters
+.define SETNAME $FDF9 ; set file name
+.define CHKIN $F20E ; set file as stdin
+.define CHKOUT $F250 ; set file as stdout
+.define CLRCHN $F333 ; close file and restore stdin/stdout to keyboard/screen
+
 .define DATA_AREA $C000 ; bf data area
+.define FILE_NAME_LEN 8
+
+.enum $02
+temp_ptr 2 ; used as pointer to anything useful
+.ende
 
 .enum $FB ; start of ok to use zero page addresses
 inst_ptr 2
@@ -15,8 +29,20 @@ temp 2 ; temp storage
 ;   00 -> code input mode
 ;   7th bit = 1 -> output current instruction during execution
 ;   6th bit = 1 -> ouput program
+;
+;
+;   the following file commands requires the user to set up file_name, flogical, fsecondary and fdevice
+;   5th bit = 1 -> set file as input
+;   4th bit = 1 -> set file as output
+;   3rd bit = 1 -> load prg from file to bfcode_ptr
+;   2nd bit = 1 -> save bfcode_ptr contents to file until \0
+;
 ;   1st bit -> execute code
 repl_flag 1 ; repl flag set to 00 to start repl, do not move!
+file_name FILE_NAME_LEN ; current filename
+flogical 1 ; logical number
+fdevice 1  ; device number
+fsecondary 1 ; secondary address
 .ende
 
 .db #<BASIC_MEMORY, #>BASIC_MEMORY ; ptr to next basic line
@@ -62,6 +88,18 @@ init:
     lda #$00
     sta loop_depth ; 0 loop depth
 
+    ; check if stdin/stdout are to be redirected
+    lda repl_flag
+    and #%000100000
+    beq @not_stdin
+    jsr open_file_read
+@not_stdin:
+    lda repl_flag
+    and #%00001000
+    beq @not_stdout
+    jsr open_file_write
+@not_stdout:
+
     lda repl_flag  ; repl mode if 0
     beq @repl
     and #%00000001 ; exec check
@@ -70,16 +108,47 @@ init:
     and #%01000000 ; print check
     bne @put_prg
 
+    lda repl_flag
+    and #%00000100 ; load file
+    bne @load_prg
+
+    lda repl_flag
+    and #%00000010 ; save prg
+    bne @save_prg
+
 @exec:
     jsr parse_loop
-    rts ; exit back to basic
+    jmp clean_up
+
 @repl:
     jsr repl
-    rts ; back to basic
+    jmp clean_up
+
 @put_prg:
     jsr put_prg
-    rts ; back to basic
+    jmp clean_up
 
+@load_prg:
+    ldx #<loading_str
+    ldy #>loading_str
+    jsr put_str
+
+    jsr open_file_read
+    jsr load_prg
+    jmp clean_up
+
+@save_prg:
+    ldx #<saving_str
+    ldy #>saving_str
+    jsr put_str
+
+    jsr open_file_write
+    jsr save_prg
+
+clean_up:
+    ; restore stdin/stdout
+    jsr close_file
+    rts ; back to basic 
 
 
 ; loops through inst_ptr until $00 is reached
@@ -369,6 +438,157 @@ parse_inst:
 
 @not_loop_close:
     rts 
+
+; sets up a file
+; inputs:
+;   file_name, fdevice, flogical, fsecondary
+setup_file:
+    lda flogical
+    ldx fdevice
+    ldy fsecondary
+    jsr SETLFS ; set file parameters
+
+    lda #FILE_NAME_LEN
+    ldx #<file_name
+    ldy #>file_name
+    jsr SETNAME
+
+    rts
+
+; this sub routine computes the lenght of a program pointed to by
+; bfcode_ptr
+; returns:
+;   x -> bytes lo
+;   y -> bytes hi
+prg_len:
+    lda bfcode_ptr
+    sta temp_ptr
+    lda bfcode_ptr+1
+    sta temp_ptr
+    ldy #$00
+    sty temp ; zero out counter
+    sty temp+1
+@calc_loop:
+    lda (temp_ptr), y
+    beq @done
+    ; inc counter
+    lda temp
+    clc
+    adc #$01
+    sta temp
+    lda temp+1
+    adc #$00
+    sta temp+1
+
+    ; inc ptr
+    lda temp_ptr
+    clc
+    adc #$01
+    sta temp_ptr
+    lda temp_ptr+1
+    adc #$00
+    sta temp_ptr+1
+
+    jmp @calc_loop
+@done:
+    ldx temp ; return values
+    ldy temp+1
+    rts
+
+; this sub routine opens a file for reading
+; and sets it as stdin
+; inputs:
+;   file_name, fdevice, flogical, fsecondary
+open_file_read:
+    jsr setup_file
+    ldx flogical
+    jsr CHKIN
+    rts
+
+; this sub rotuine opens a file for writing
+; and sets it as stdout
+; inputs:
+;   file_name, fdevice, flogical, fsecondary
+open_file_write:
+    jsr setup_file
+    ldx flogical
+    jsr CHKOUT
+    rts 
+
+; closes a file that was set as stdin/stdout
+; inputs:
+;   flogical
+close_file:
+    jsr CLRCHN
+
+    rts
+
+; this sub rotuine reads
+; bytes from a file until it reads 0
+; stores read values in bfcode_ptr
+load_prg:
+    lda bfcode_ptr
+    sta temp_ptr
+    lda bfcode_ptr+1
+    sta temp_ptr+1
+
+@loop:
+    jsr BASIN ; read next byte
+    cmp #$00
+    beq @done
+
+    ldy #$00
+    sta (temp_ptr), y
+
+    ; next ptr address
+    lda temp_ptr
+    clc
+    adc #$01
+    sta temp_ptr
+    lda temp_ptr+1
+    adc #$00
+    sta temp_ptr+1
+
+    jmp @loop
+@done:
+    ldy #$00
+    sta (temp_ptr), y ; a is 0, store it now
+    rts
+
+; this sub routine writes
+; a program to stdou
+; a program to stdoutt
+save_prg:
+    lda inst_ptr
+    pha
+    lda inst_ptr+1
+    pha
+    jsr put_prg
+    pla
+    sta inst_ptr+1
+    pla
+    sta inst_ptr
+    rts
+
+; prints a string that is \0 terminated
+; inputs:
+;   x/y ptr to string
+put_str:
+    stx temp_ptr
+    sty temp_ptr+1
+    ldy #$00
+@loop:
+    lda (temp_ptr), y
+    beq @done
+    jsr BSOUT
+    jmp @loop
+@done:
+    rts 
+
+loading_str:
+.db "Loading..."
+saving_str:
+.db "Saving..."
 
 bfcode:
 .incbin "./test.bf"
