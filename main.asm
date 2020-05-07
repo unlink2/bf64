@@ -10,6 +10,12 @@ data_ptr 2
 next_inst 1 ; next instruction to parse, if 00 terminate
 loop_depth 1 ; how many loops deep are we? used for search of ] or [
 temp 2 ; temp storage
+; repl flag
+; possible values:
+;   00 -> code input mode
+;   7th bit = 1 -> output current instruction during execution
+;   6th bit = 1 -> ouput program
+;   1st bit -> execute code
 repl_flag 1 ; repl flag set to 00 to start repl, do not move!
 .ende
 
@@ -58,12 +64,23 @@ init:
 
     lda repl_flag  ; repl mode if 0
     beq @repl
+    and #%00000001 ; execu check
+    bne @exec
+    lda repl_flag
+    and #%01000000 ; print check
+    bne @put_prg
 
+@exec:
     jsr parse_loop
     rts ; exit back to basic
 @repl:
     jsr repl
     rts ; back to basic
+@put_prg:
+    jsr put_prg
+    rts ; back to basic
+
+
 
 ; loops through inst_ptr until $00 is reached
 ; inputs:
@@ -110,6 +127,20 @@ repl:
     ; set last byte to 0
     lda #$00
     sta (inst_ptr), y
+    rts
+
+; outputs the program stored at inst_ptr until \0 is reached
+put_prg:
+    ldy #$00
+    lda (inst_ptr), y
+    beq @done
+
+    jsr BSOUT
+
+    lda #$01
+    jsr inc_inst_ptr
+    jmp put_prg
+@done:
     rts
 
 ; increments isntruction ptr by a
