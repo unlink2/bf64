@@ -64,7 +64,7 @@ init:
 
     lda repl_flag  ; repl mode if 0
     beq @repl
-    and #%00000001 ; execu check
+    and #%00000001 ; exec check
     bne @exec
     lda repl_flag
     and #%01000000 ; print check
@@ -131,6 +131,8 @@ repl:
 
 ; outputs the program stored at inst_ptr until \0 is reached
 put_prg:
+    ldx #$00 ; counter for input wait
+@loop:
     ldy #$00
     lda (inst_ptr), y
     beq @done
@@ -139,7 +141,14 @@ put_prg:
 
     lda #$01
     jsr inc_inst_ptr
-    jmp put_prg
+
+    inx ;
+    cpx #$FF
+    bne @no_wait
+    JSR BASIN ; wait for input
+    ldx #$00
+@no_wait:
+    jmp @loop
 @done:
     rts
 
