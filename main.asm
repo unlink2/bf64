@@ -14,6 +14,8 @@
 .define DATA_AREA $C000 ; bf data area
 .define FILE_NAME_LEN 8
 
+.define INIT_MAGIC_VALUE $5C
+
 .enum $02
 temp_ptr 2 ; used as pointer to anything useful
 .ende
@@ -22,7 +24,7 @@ temp_ptr 2 ; used as pointer to anything useful
 inst_ptr 2
 data_ptr 2
 next_inst 1 ; next instruction to parse, if 00 terminate
-loop_depth 1 ; how many loops deep are we? used for search of ] or [
+init_magic 1 ; magic number, was init called once before, if not set default memory values
 temp 2 ; temp storage
 ; repl flag
 ; possible values:
@@ -48,12 +50,13 @@ fsecondary 1 ; secondary address
 .db #<BASIC_MEMORY, #>BASIC_MEMORY ; ptr to next basic line
 .org BASIC_MEMORY
 
+.define BAS_SYS $9E
+.define BAS_POKE $97
+
 ; a very simple basic program that jumps to the start of machine code
-.db $0c, $08, $00, $00, $9e ; 10 sys
+.db $0c, $08, $00, $00, BAS_SYS ; 10 sys
 .db "2065", $00, $00, $00 ; the actual address in petscii
 
-
-.org $080D ; address after basic
 bfcode_ptr: ; do not move this label!
 .db #<bfcode, #>bfcode ; start address of code, can be poked
 bfdata_ptr: ; do not move this label!
@@ -61,6 +64,8 @@ bfdata_ptr: ; do not move this label!
 
 init:
     cld ; not decimal mode
+
+    jsr clear_mem
 
     ; init ptr to data
     lda bfdata_ptr
@@ -85,8 +90,6 @@ init:
     lda bfcode_ptr+1
     sta inst_ptr+1
 
-    lda #$00
-    sta loop_depth ; 0 loop depth
 
     ; check if stdin/stdout are to be redirected
     lda repl_flag
@@ -132,6 +135,9 @@ init:
     ldx #<loading_str
     ldy #>loading_str
     jsr put_str
+    ldx #<file_name
+    ldy #>file_name
+    jsr put_str
 
     jsr open_file_read
     jsr load_prg
@@ -141,6 +147,9 @@ init:
     ldx #<saving_str
     ldy #>saving_str
     jsr put_str
+    ldx #<file_name
+    ldy #>file_name
+    jsr put_str
 
     jsr open_file_write
     jsr save_prg
@@ -148,7 +157,43 @@ init:
 clean_up:
     ; restore stdin/stdout
     jsr close_file
-    rts ; back to basic 
+    rts ; back to basic
+
+; this sub routine sets up default values
+; inputs:
+;   init_magic -> if it matches INIT_MAGIC_VALUE this will be skipped
+clear_mem:
+    lda init_magic
+    cmp #INIT_MAGIC_VALUE
+    beq @done
+    lda #INIT_MAGIC_VALUE
+    sta init_magic
+
+    ; default values
+    lda #$01 ; run mode
+    sta repl_flag
+
+    lda #'B'
+    sta file_name
+    lda #'F'
+    sta file_name+1
+    lda #$00
+    sta file_name+2
+    sta file_name+3
+    sta file_name+4
+    sta file_name+5
+    sta file_name+6
+    sta file_name+7
+
+    lda #$08 ; load 8
+    sta fdevice
+    lda #$03 ; load 3,8,3
+    sta flogical
+    lda #$03
+    sta fsecondary
+
+@done:
+    rts
 
 
 ; loops through inst_ptr until $00 is reached
@@ -214,11 +259,17 @@ put_prg:
     inx ;
     cpx #$FF
     bne @no_wait
+    lda repl_flag
+    and #%01000000 ; print check, do not wait in save file mode
+    beq @no_wait
     JSR BASIN ; wait for input
     ldx #$00
 @no_wait:
     jmp @loop
 @done:
+    lda #$00
+    jsr BSOUT ; NULL at the end
+
     rts
 
 ; increments isntruction ptr by a
@@ -443,28 +494,34 @@ parse_inst:
 ; inputs:
 ;   file_name, fdevice, flogical, fsecondary
 setup_file:
+    ldx #<file_name
+    ldy #>file_name
+    jsr str_len
+    ; only need 8 bit value which is returned in x
+    txa ; lenght
+    ldx #<file_name
+    ldy #>file_name
+    jsr SETNAME
+
     lda flogical
     ldx fdevice
     ldy fsecondary
     jsr SETLFS ; set file parameters
 
-    lda #FILE_NAME_LEN
-    ldx #<file_name
-    ldy #>file_name
-    jsr SETNAME
+    jsr OPEN
 
     rts
 
-; this sub routine computes the lenght of a program pointed to by
-; bfcode_ptr
+; this sub routine computes the lenght of a string
+; inputs:
+;   x -> lo
+;   y -> hi
 ; returns:
 ;   x -> bytes lo
 ;   y -> bytes hi
-prg_len:
-    lda bfcode_ptr
-    sta temp_ptr
-    lda bfcode_ptr+1
-    sta temp_ptr
+str_len:
+    stx temp_ptr
+    sty temp_ptr
     ldy #$00
     sty temp ; zero out counter
     sty temp+1
@@ -519,6 +576,8 @@ open_file_write:
 ; inputs:
 ;   flogical
 close_file:
+    lda flogical
+    jsr CLOSE
     jsr CLRCHN
 
     rts
@@ -576,19 +635,28 @@ save_prg:
 put_str:
     stx temp_ptr
     sty temp_ptr+1
-    ldy #$00
 @loop:
+    ldy #$00
     lda (temp_ptr), y
     beq @done
     jsr BSOUT
+
+    ; next char
+    lda temp_ptr
+    clc
+    adc #$01
+    sta temp_ptr
+    lda temp_ptr+1
+    adc #$00
+    sta temp_ptr+1
     jmp @loop
 @done:
     rts 
 
 loading_str:
-.db "Loading..."
+.db "LOADING ", $00
 saving_str:
-.db "Saving..."
+.db "SAVING ", $00
 
 bfcode:
 .incbin "./test.bf"

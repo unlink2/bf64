@@ -1,7 +1,7 @@
 CC=lasm 
-BIN=main.prg
-LST=main.sym
-MSN=main.mlb
+BIN=bf64.prg
+LST=bf64.sym
+MSN=bf64.mlb
 
 BINDIR=./bin
 MAIN = main.asm
