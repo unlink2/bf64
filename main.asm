@@ -53,7 +53,7 @@ fdevice_w 1
 fdevice 1  ; device number
 fsecondary_r 1 ; secondary address
 fsecondary_w 1
-fsecondary
+fsecondary 1
 .ende
 
 .db #<BASIC_MEMORY, #>BASIC_MEMORY ; ptr to next basic line
