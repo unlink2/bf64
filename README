@@ -19,9 +19,16 @@ repl_flag	103
 file_name_ptr	104
 file_name_ptr_r	106
 file_name_ptr_w	108
-flogical	10A
-fdevice	10B
-fsecondary	10C
+flogical_r	10A
+flogical_w	10B
+flogical	10C
+fdevice_r	10D
+fdevice_w	10E
+fdevice	10F
+fsecondary_r	110
+fsecondary_w	111
+fsecondary	112
+
 bfcode_ptr	80D
 bfdata_ptr	80F
 
