@@ -10,9 +10,10 @@
 .define CHKIN $F20E ; set file as stdin
 .define CHKOUT $F250 ; set file as stdout
 .define CLRCHN $F333 ; close file and restore stdin/stdout to keyboard/screen
+.define READST $FFB7 ; read io status if nonzero error
 
 .define DATA_AREA $C000 ; bf data area
-.define FILE_NAME_LEN 8
+.define FILE_NAME_LEN 10
 
 .define INIT_MAGIC_VALUE $5C
 
@@ -41,7 +42,9 @@ temp 2 ; temp storage
 ;
 ;   1st bit -> execute code
 repl_flag 1 ; repl flag set to 00 to start repl, do not move!
-file_name FILE_NAME_LEN ; current filename
+file_name_ptr 2 ; current filename
+file_name_ptr_r 2 ; read file name
+file_name_ptr_w 2 ; write file name
 flogical 1 ; logical number
 fdevice 1  ; device number
 fsecondary 1 ; secondary address
@@ -95,6 +98,12 @@ init:
     lda repl_flag
     and #%000100000
     beq @not_stdin
+
+    ; open file for reading
+    lda file_name_ptr_r
+    sta file_name_ptr
+    lda file_name_ptr_r+1
+    sta file_name_ptr+1
     jsr open_file_read
 @not_stdin:
     lda repl_flag
@@ -135,8 +144,11 @@ init:
     ldx #<loading_str
     ldy #>loading_str
     jsr put_str
-    ldx #<file_name
-    ldy #>file_name
+
+    ldx file_name_ptr_r
+    stx file_name_ptr
+    ldy file_name_ptr_r+1
+    sty file_name_ptr+1
     jsr put_str
 
     jsr open_file_read
@@ -147,8 +159,11 @@ init:
     ldx #<saving_str
     ldy #>saving_str
     jsr put_str
-    ldx #<file_name
-    ldy #>file_name
+
+    ldx file_name_ptr_w
+    stx file_name_ptr
+    ldy file_name_ptr_w+1
+    sty file_name_ptr+1
     jsr put_str
 
     jsr open_file_write
@@ -173,21 +188,19 @@ clear_mem:
     lda #$01 ; run mode
     sta repl_flag
 
-    lda #'B'
-    sta file_name
-    lda #'F'
-    sta file_name+1
-    lda #$00
-    sta file_name+2
-    sta file_name+3
-    sta file_name+4
-    sta file_name+5
-    sta file_name+6
-    sta file_name+7
+    lda #<default_file_name_r
+    sta file_name_ptr_r
+    lda #>default_file_name_r
+    sta file_name_ptr_r+1
+
+    lda #<default_file_name_w
+    sta file_name_ptr_w
+    lda #>default_file_name_w
+    sta file_name_ptr_w+1
 
     lda #$08 ; load 8
     sta fdevice
-    lda #$03 ; load 3,8,3
+    lda #$05 ; load 3,8,3
     sta flogical
     lda #$03
     sta fsecondary
@@ -494,13 +507,13 @@ parse_inst:
 ; inputs:
 ;   file_name, fdevice, flogical, fsecondary
 setup_file:
-    ldx #<file_name
-    ldy #>file_name
+    ldx file_name_ptr
+    ldy file_name_ptr+1
     jsr str_len
     ; only need 8 bit value which is returned in x
     txa ; lenght
-    ldx #<file_name
-    ldy #>file_name
+    ldx file_name_ptr
+    ldy file_name_ptr+1
     jsr SETNAME
 
     lda flogical
@@ -509,6 +522,12 @@ setup_file:
     jsr SETLFS ; set file parameters
 
     jsr OPEN
+
+    jsr READST
+    beq @no_error
+    jsr BSOUT
+    jsr io_error
+@no_error:
 
     rts
 
@@ -521,7 +540,7 @@ setup_file:
 ;   y -> bytes hi
 str_len:
     stx temp_ptr
-    sty temp_ptr
+    sty temp_ptr+1
     ldy #$00
     sty temp ; zero out counter
     sty temp+1
@@ -550,6 +569,7 @@ str_len:
 @done:
     ldx temp ; return values
     ldy temp+1
+
     rts
 
 ; this sub routine opens a file for reading
@@ -629,6 +649,13 @@ save_prg:
     sta inst_ptr
     rts
 
+; outputs io error
+io_error:
+    ldx #<io_error_str
+    ldy #>io_error_str
+    jsr put_str
+    rts
+
 ; prints a string that is \0 terminated
 ; inputs:
 ;   x/y ptr to string
@@ -651,12 +678,19 @@ put_str:
     sta temp_ptr+1
     jmp @loop
 @done:
-    rts 
+    rts
+
 
 loading_str:
 .db "LOADING ", $00
 saving_str:
 .db "SAVING ", $00
+io_error_str:
+.db "IO ERROR", $00
+default_file_name_w:
+.db "PRG,S,W", $00
+default_file_name_r:
+.db "PRG,S,R", $00
 
 bfcode:
 .incbin "./test.bf"
