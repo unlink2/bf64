@@ -9,8 +9,39 @@ To enter debug print mode POKE 259, 64. The program will now be printed to the s
 To change the starting location of the code area poke 2061 and 2062 with a new location.
 To change the data location poke 2063 and 2064.
 
-Debug mode:
-If the 7th bit of 259 is set (poke 259, 128) debug mode is enabled. All instructons will be printed to the screen.
+Memory locations (in hex):
+inst_ptr	FB
+data_ptr	FD
+next_inst	FF
+init_magic	100
+temp	101
+repl_flag	103
+file_name_ptr	104
+file_name_ptr_r	106
+file_name_ptr_w	108
+flogical	10A
+fdevice	10B
+fsecondary	10C
+bfcode_ptr	80D
+bfdata_ptr	80F
+
+Repl flag values:
+; repl flag sets up the program mode
+; possible values:
+;   00 -> code input mode
+;   7th bit = 1 -> output current instruction during execution
+;   6th bit = 1 -> ouput program
+;
+;
+;   the following file commands requires the user to set up file_name, flogical, fsecondary and fdevice
+;   5th bit = 1 -> set file as input
+;   4th bit = 1 -> set file as output
+;   3rd bit = 1 -> load prg from file to bfcode_ptr
+;   2nd bit = 1 -> save bfcode_ptr contents to file until \0
+;
+;   1st bit -> execute code
+
+
 
 FAQ:
 

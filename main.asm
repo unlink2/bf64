@@ -45,9 +45,15 @@ repl_flag 1 ; repl flag set to 00 to start repl, do not move!
 file_name_ptr 2 ; current filename
 file_name_ptr_r 2 ; read file name
 file_name_ptr_w 2 ; write file name
+flogical_r 1
+flogical_w 1
 flogical 1 ; logical number
+fdevice_r 1
+fdevice_w 1
 fdevice 1  ; device number
-fsecondary 1 ; secondary address
+fsecondary_r 1 ; secondary address
+fsecondary_w 1
+fsecondary
 .ende
 
 .db #<BASIC_MEMORY, #>BASIC_MEMORY ; ptr to next basic line
@@ -104,11 +110,34 @@ init:
     sta file_name_ptr
     lda file_name_ptr_r+1
     sta file_name_ptr+1
+
+    ; device settings
+    lda flogical_r
+    sta flogical
+    lda fdevice_r
+    sta fdevice
+    lda fsecondary_r
+    sta fsecondary
+
     jsr open_file_read
 @not_stdin:
     lda repl_flag
     and #%00001000
     beq @not_stdout
+
+    lda file_name_ptr_w
+    sta file_name_ptr
+    lda file_name_ptr_w+1
+    sta file_name_ptr+1
+
+    ; device settings
+    lda flogical_w
+    sta flogical
+    lda fdevice_w
+    sta fdevice
+    lda fsecondary_w
+    sta fsecondary
+
     jsr open_file_write
 @not_stdout:
 
@@ -151,6 +180,14 @@ init:
     sty file_name_ptr+1
     jsr put_str
 
+    ; load device settings
+    lda flogical_r
+    sta flogical
+    lda fdevice_r
+    sta fdevice
+    lda fsecondary_r
+    sta fsecondary
+
     jsr open_file_read
     jsr load_prg
     jmp clean_up
@@ -165,6 +202,14 @@ init:
     ldy file_name_ptr_w+1
     sty file_name_ptr+1
     jsr put_str
+
+    ; device settings
+    lda flogical_w
+    sta flogical
+    lda fdevice_w
+    sta fdevice
+    lda fsecondary_w
+    sta fsecondary
 
     jsr open_file_write
     jsr save_prg
@@ -199,11 +244,14 @@ clear_mem:
     sta file_name_ptr_w+1
 
     lda #$08 ; load 8
-    sta fdevice
+    sta fdevice_w
+    sta fdevice_r
     lda #$05 ; load 3,8,3
-    sta flogical
+    sta flogical_r
+    sta flogical_w
     lda #$03
-    sta fsecondary
+    sta fsecondary_r
+    sta fsecondary_w
 
 @done:
     rts
