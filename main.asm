@@ -379,7 +379,7 @@ count_same_inst:
     cpy #$FF ; dont overflow
     bne @loop
 @done:
-.end
+.endif
     tya ; return result in a
     rts
 
