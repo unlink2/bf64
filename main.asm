@@ -1,3 +1,5 @@
+.define OPTIMIZE $01
+
 .define BSOUT $FFD2 ; prints A to screen
 .define BASIN $FFCF ; reads one char to A
 .define BASIC_MEMORY $0801 ; start of basic memory
@@ -368,6 +370,7 @@ dec_inst_ptr:
 count_same_inst:
     sta temp
     ldy #$01 ; start loop at 1
+.if OPTIMIZE == $01
 @loop:
     lda (inst_ptr), y
     cmp temp ; compare to instruction
@@ -376,6 +379,7 @@ count_same_inst:
     cpy #$FF ; dont overflow
     bne @loop
 @done:
+.end
     tya ; return result in a
     rts
 
