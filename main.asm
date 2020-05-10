@@ -277,7 +277,7 @@ parse_loop:
 
     jsr parse_inst
     ; next instruction
-    lda #$01
+    lda next_inst ; load amount of instructions executed
     jsr inc_inst_ptr
     jmp parse_loop ; next
 @done:
@@ -355,6 +355,28 @@ dec_inst_ptr:
     lda inst_ptr+1
     sbc #$00
     sta inst_ptr+1
+    rts
+
+; counts how many of the same instruction
+; are being executed in a row
+; inputs:
+;   a -> instruction symbol
+; side effects:
+;   uses temp and y
+; returns:
+;   a -> amount (max FF min 01)
+count_same_inst:
+    sta temp
+    ldy #$01 ; start loop at 1
+@loop:
+    lda (inst_ptr), y
+    cmp temp ; compare to instruction
+    bne @done
+    iny
+    cpy #$FF ; dont overflow
+    bne @loop
+@done:
+    tya ; return result in a
     rts
 
 ; increments data ptr by a
@@ -482,19 +504,28 @@ close_loop:
 ;   next_inst -> instruction
 ; side effects:
 ;   executes instruction
+; returns:
+;   amount of instructions executed in next_inst, will always be at least 1
 parse_inst:
     ; simple switch case
     lda next_inst
+    ldx #$01 ; return value must always return at least 1
+    stx next_inst
+
     cmp #'>'
     bne @not_inc_data_ptr
-    lda #$01
+    jsr count_same_inst ; count instructions
+    sta next_inst ; amount of instructions that were found
+    ; lda #$01
     jsr inc_data_ptr
     rts
 
 @not_inc_data_ptr:
     cmp #'<'
     bne @not_dec_data_ptr
-    lda #$01
+    jsr count_same_inst ; count instructions
+    sta next_inst ; amount of instructions that were found
+    ; lda #$01
     jsr dec_data_ptr
     rts
 
@@ -502,9 +533,11 @@ parse_inst:
 
     cmp #'+'
     bne @not_inc_data
+    jsr count_same_inst ; count instructions
+    sta next_inst ; amount of instructions that were found
     jsr read_data_ptr
     clc
-    adc #$01
+    adc next_inst
     jsr write_data_ptr
     rts
 
@@ -512,9 +545,11 @@ parse_inst:
 
     cmp #'-'
     bne @not_dec_data
+    jsr count_same_inst ; count instructions
+    sta next_inst ; amount of instructions that were found
     jsr read_data_ptr
     sec
-    sbc #$01
+    sbc next_inst
     jsr write_data_ptr
     rts
 
