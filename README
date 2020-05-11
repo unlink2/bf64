@@ -33,20 +33,20 @@ bfcode_ptr	80D
 bfdata_ptr	80F
 
 Repl flag values:
-; repl flag sets up the program mode
+; repl flag
 ; possible values:
 ;   00 -> code input mode
 ;   7th bit = 1 -> output current instruction during execution
 ;   6th bit = 1 -> ouput program
-;
+;   5th bit = 1 -> skip menu
 ;
 ;   the following file commands requires the user to set up file_name, flogical, fsecondary and fdevice
-;   5th bit = 1 -> set file as input
-;   4th bit = 1 -> set file as output
-;   3rd bit = 1 -> load prg from file to bfcode_ptr
-;   2nd bit = 1 -> save bfcode_ptr contents to file until \0
+;   4th bit = 1 -> set file as input
+;   3rd bit = 1 -> set file as output
+;   2nd bit = 1 -> load prg from file to bfcode_ptr
+;   1st bit = 1 -> save bfcode_ptr contents to file until \0
 ;
-;   1st bit -> execute code
+;   0th bit = 1 -> execute code
 
 
 

@@ -34,15 +34,15 @@ temp 2 ; temp storage
 ;   00 -> code input mode
 ;   7th bit = 1 -> output current instruction during execution
 ;   6th bit = 1 -> ouput program
-;
+;   5th bit = 1 -> skip menu
 ;
 ;   the following file commands requires the user to set up file_name, flogical, fsecondary and fdevice
-;   5th bit = 1 -> set file as input
-;   4th bit = 1 -> set file as output
-;   3rd bit = 1 -> load prg from file to bfcode_ptr
-;   2nd bit = 1 -> save bfcode_ptr contents to file until \0
+;   4th bit = 1 -> set file as input
+;   3rd bit = 1 -> set file as output
+;   2nd bit = 1 -> load prg from file to bfcode_ptr
+;   1st bit = 1 -> save bfcode_ptr contents to file until \0
 ;
-;   1st bit -> execute code
+;   0th bit = 1 -> execute code
 repl_flag 1 ; repl flag set to 00 to start repl, do not move!
 file_name_ptr 2 ; current filename
 file_name_ptr_r 2 ; read file name
@@ -78,6 +78,8 @@ init:
 
     jsr clear_mem
 
+    jsr menu
+
     ; init ptr to data
     lda bfdata_ptr
     sta data_ptr
@@ -104,7 +106,7 @@ init:
 
     ; check if stdin/stdout are to be redirected
     lda repl_flag
-    and #%000100000
+    and #%00010000
     beq @not_stdin
 
     ; open file for reading
@@ -770,6 +772,113 @@ put_str:
 @done:
     rts
 
+; this sub routine runs the basic main menu
+; promts user to select how to run the program
+menu:
+    lda repl_flag
+    and #%00100000
+    beq @no_skip
+    rts
+@no_skip:
+
+    ; print strings
+    ldx #<run_mode_str
+    ldy #>run_mode_str
+    jsr put_str
+
+    ldx #<input_prg_str
+    ldy #>input_prg_str
+    jsr put_str
+
+    ldx #<list_prg_str
+    ldy #>list_prg_str
+    jsr put_str
+
+    ldx #<run_debug_mode_str
+    ldy #>run_debug_mode_str
+    jsr put_str
+
+
+    ldx #<save_str
+    ldy #>save_str
+    jsr put_str
+
+    ldx #<load_str
+    ldy #>load_str
+    jsr put_str
+
+@invalid:
+    jsr BASIN
+    pha
+    lda #$0D ; new line
+    jsr BSOUT
+    pla
+
+    ; check selection
+    cmp #'1'
+    bne @not_run
+
+    ; store the flag for the selected mode
+    ; clear other bits
+    lda #$01
+    sta repl_flag
+    rts
+@not_run:
+
+    cmp #'2'
+    bne @not_input
+
+    lda #$00 ; clear for input
+    sta repl_flag
+    rts
+@not_input:
+
+    cmp #'3'
+    bne @not_list
+
+    ; store the flag for the selected mode
+    ; clear other bits
+    lda #$40 ; set bit
+    sta repl_flag
+
+    rts
+@not_list:
+
+    cmp #'4'
+    bne @not_debug
+
+    ; store the flag for the selected mode
+    ; clear other bits
+    lda #$80 ; set bit
+    sta repl_flag
+
+    rts
+@not_debug:
+
+    cmp #'5'
+    bne @not_save
+
+    ; store the flag for the selected mode
+    ; clear other bits
+    lda #$02 ; set bit
+    sta repl_flag
+
+    rts
+@not_save:
+
+    cmp #'6'
+    bne @not_load
+
+
+    ; store the flag for the selected mode
+    ; clear other bits
+    lda #$04 ; set bit
+    sta repl_flag
+
+    rts
+@not_load:
+    jmp @invalid ; loop until valid answer is given
+
 
 loading_str:
 .db "LOADING ", $00
@@ -781,6 +890,19 @@ default_file_name_w:
 .db "PRG,S,W", $00
 default_file_name_r:
 .db "PRG,S,R", $00
+
+run_mode_str:
+.db "1. RUN PROGRAM", $0D, $00
+run_debug_mode_str:
+.db "4. RUN DEBUG MODE", $0D, $00
+input_prg_str:
+.db "2. INPUT PROGRAM", $0D, $00
+list_prg_str:
+.db "3. LIST PROGRAM", $0D, $00
+load_str:
+.db "6. LOAD...", $0D, $00
+save_str:
+.db "5. SAVE...", $0D, $00
 
 bfcode:
 .incbin "./test.bf"
