@@ -570,7 +570,10 @@ parse_inst:
     cmp #','
     bne @not_in
 
+@rep:
     jsr BASIN
+    cmp #$0D ; if return skip and try again
+    beq @rep 
     jsr write_data_ptr
     rts
 
